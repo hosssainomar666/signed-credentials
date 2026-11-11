@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block body %}
+<h1>Verify a credential</h1>
+
+<form class="card" method="get" action="{{ url_for('index') }}">
+  <label for="code">Verification code (printed under the QR code)</label>
+  <input id="code" name="code" required maxlength="64" autocomplete="off">
+  <button type="submit">Verify</button>
+</form>
+
+{% if result %}
+<div class="card">
+  {% if result.state == 'not_found' %}
+    <h2><span class="pill not_found">NOT FOUND</span></h2>
+    <p>No credential matches this code. It may be mistyped or not issued by this system.</p>
+  {% else %}
+    {% set c = result.credential %}
+    <h2><span class="pill {{ result.state }}">{{ result.state|upper }}</span></h2>
+    {% if result.state == 'revoked' %}<p>This credential was revoked and must not be relied on.</p>{% endif %}
+    {% if result.state == 'expired' %}<p>This credential was genuine, but its validity period has ended.</p>{% endif %}
+    <table>
+      <tr><th>Credential</th><td>{{ type_labels[c.credential_type] }}</td></tr>
+      <tr><th>Serial</th><td>{{ c.serial }}</td></tr>
+      <tr><th>Holder</th><td>{{ c.holder_name }}{% if c.holder_org %}, {{ c.holder_org }}{% endif %}</td></tr>
+      {% if c.purpose %}<tr><th>Purpose</th><td>{{ c.purpose }}</td></tr>{% endif %}
+      <tr><th>Issued</th><td>{{ c.issued_at[:10] }}</td></tr>
+      <tr><th>Valid until</th><td>{{ c.expires_at }}</td></tr>
+    </table>
+    <p><small>Compare the holder name with the person or document in front of you.</small></p>
+  {% endif %}
+</div>
+{% endif %}
+
+<h2>Check a PDF file</h2>
+<form class="card" method="post" action="{{ url_for('check_pdf_page') }}" enctype="multipart/form-data">
+  <label for="pdf">Upload the PDF you received (max 2 MB)</label>
+  <input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required>
+  <button type="submit">Check file</button>
+</form>
+
+{% if pdf %}
+<div class="card">
+  {% if pdf.kind == 'invalid' %}
+    <h2><span class="pill invalid">NOT CHECKED</span></h2>
+    <p>Please upload a PDF file smaller than 2 MB.</p>
+  {% elif pdf.kind == 'nomatch' %}
+    <h2><span class="pill nomatch">NO MATCH</span></h2>
+    <p>This file is not identical to any document issued by this system. It may have been altered or re-saved.</p>
+  {% else %}
+    <h2><span class="pill {{ pdf.state }}">{{ pdf.state|upper }}</span></h2>
+    <p>This file is byte-for-byte identical to the issued document <strong>{{ pdf.credential.serial }}</strong>
+       ({{ pdf.credential.holder_name }}).</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
